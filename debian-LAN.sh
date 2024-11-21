@@ -36,7 +36,7 @@ chattr +i /etc/cron.weekly
 #get rif of cups
 systemctl stop cups
 systemctl disable cups
-apt remove --purge cups
+apt remove --purge -y cups
 
 #delete all nftables and legacy rules
 iptables -F
@@ -55,7 +55,7 @@ systemctl restart sshd
 #since this is a LAN box we will remove sshd
 systemctl stop sshd
 systemctl disable sshd
-apt remove openssh-server
+apt remove -y openssh-server
 
 #setup basic firewall rules
 
