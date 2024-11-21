@@ -58,6 +58,7 @@ systemctl disable sshd
 apt remove -y openssh-server
 
 #setup basic firewall rules
+#do not blobk port 10000 bc ur running webmin on that
 
 
 #get webmin
