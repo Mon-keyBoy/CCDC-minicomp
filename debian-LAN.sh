@@ -15,7 +15,7 @@ systemctl start auditd
 mkdir /var/log/SYSLOG
 
 #make usefull aliases for all users
-echo 'alias auditusers="awk -F: '\''($3 == 0) || ($3 >= 1000 && $3 < 65534) {print $1}'\'' /etc/passwd"' >> /etc/bash.bashrc
+echo 'alias auditusers="awk -F: '\''$3 >= 1000 && $7 !~ /nologin|false {print $1}'\'' /etc/passwd"' >> /etc/bash.bashrc
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
 
 
