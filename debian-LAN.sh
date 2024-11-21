@@ -46,6 +46,9 @@ apt remove --purge -y cups
 iptables -F
 iptables -X
 nft flush ruleset
+#disable firewalld and ufw
+systemctl disable --now firewalld
+systemctl disable --now ufw
 
 #make sshd config more secure
 sed -i 's/^#\?UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
@@ -78,3 +81,5 @@ debsums | grep -v 'OK$'
 
 #show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
 cat /etc/passwd | cut -d ":" -f 1,3 | awk -F ":" '$2 > 1000 {print $1}'
+
+#/etc/skel where they keep backups of system binaries,they might backdoor it but look into it
