@@ -11,7 +11,7 @@ fi
 #reinstall essential config files (like ssh) and binaries 
 #binaries IDK IF THESE ARE BINARIES AND THERE ARE DEF MORE YOU SHOULD ADD TO THIS LIST
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-apt install -y --reinstall coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux
+apt install -y --reinstall coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux nftables
 
 #install tools that you want
 apt install -y vim
@@ -88,7 +88,6 @@ nft add rule ip filter input ct state established,related log accept
 #allow rules input
 #ssh
 nft add rule ip filter input tcp dport 22 accept
-!!!!!!!!!!!!!!!!!!
 #docker (HTTP)
 nft add rule ip filter input tcp dport 80 accept
 #HTTPS
