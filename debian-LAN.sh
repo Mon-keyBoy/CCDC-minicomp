@@ -15,11 +15,7 @@ systemctl start auditd
 mkdir /var/log/SYSLOG
 
 #make usefull aliases for all users
-echo 'alias auditusers="awk -F: '\''$3 >= 1000 && $7 !~ /nologin|false {print $1}'\'' /etc/passwd"' >> /etc/bash.bashrc
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
-
-
-
 
 source /etc/bash.bashrc
 
@@ -66,3 +62,7 @@ echo "deb http://download.webmin.com/download/repository sarge contrib" | tee /e
 wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
 apt install -y webmin --install-recommends
 
+
+
+#show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
+cat /etc/passwd | cut -d ":" -f 1,3 | awk -F ":" '$2 > 1000 {print $1}'
