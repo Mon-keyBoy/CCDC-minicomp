@@ -5,9 +5,18 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+#reinstall core utilities and services, make backups of important shit before and after
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+#reinstall essential config files (like ssh) and binaries 
+#binaries IDK IF THESE ARE BINARIES AND THERE ARE DEF MORE YOU SHOULD ADD TO THIS LIST
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+apt install -y --reinstall coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux
+
 #install tools that you want
 apt install -y vim
 apt install -y auditd
+apt install debsums -y
 systemctl enable auditd
 systemctl start auditd
 
@@ -16,7 +25,6 @@ mkdir /var/log/SYSLOG
 
 #make usefull aliases for all users
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
-
 source /etc/bash.bashrc
 
 #disable cron
@@ -55,14 +63,18 @@ apt remove -y openssh-server
 
 #setup basic firewall rules
 #do not blobk port 10000 bc ur running webmin on that
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 #get webmin
 echo "deb http://download.webmin.com/download/repository sarge contrib" | tee /etc/apt/sources.list.d/webmin.list
 wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
 apt install -y webmin --install-recommends
 
+#make a recursive copy of your backups and put it in another location
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+#show bad or altered files
+debsums | grep -v 'OK$' 
 
 #show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
 cat /etc/passwd | cut -d ":" -f 1,3 | awk -F ":" '$2 > 1000 {print $1}'
