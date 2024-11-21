@@ -15,7 +15,6 @@ systemctl start auditd
 mkdir /var/log/SYSLOG
 
 #make usefull aliases for all users
-
 echo 'alias auditusers="awk -F: '\''($3 == 0) || ($3 >= 1000 && $3 < 65534) {print $1}'\'' /etc/passwd"' >> /etc/bash.bashrc
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
 
@@ -23,7 +22,6 @@ echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file 
 
 
 source /etc/bash.bashrc
-
 
 #disable cron
 systemctl stop cron
@@ -54,4 +52,16 @@ sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"
 chattr +i "/etc/ssh/sshd_config"
 systemctl restart sshd
 
+#since this is a LAN box we will remove sshd
+systemctl stop sshd
+systemctl disable sshd
+apt remove openssh-server
+
 #setup basic firewall rules
+
+
+#get webmin
+echo "deb http://download.webmin.com/download/repository sarge contrib" | tee /etc/apt/sources.list.d/webmin.list
+wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
+apt install -y webmin --install-recommends
+
