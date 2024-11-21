@@ -6,11 +6,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 #reinstall core utilities and services, make backups of important shit before and after
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 #reinstall essential config files (like ssh) and binaries 
 #binaries IDK IF THESE ARE BINARIES AND THERE ARE DEF MORE YOU SHOULD ADD TO THIS LIST
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 apt install -y --reinstall coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux nftables
 
 #install tools that you want
