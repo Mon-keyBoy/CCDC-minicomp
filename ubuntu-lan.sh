@@ -40,12 +40,26 @@ systemctl stop iptables-legacy
 systemctl disable iptables-legacy
 systemctl stop iptables-persistent
 systemctl disable iptables-persistent
+
+# Define the blacklist configuration file
+BLACKLIST_FILE="/etc/modprobe.d/blacklist.conf"
+# Check if the file exists, create it if it doesn't
+if [ ! -f "$BLACKLIST_FILE" ]; then
+    echo "Creating blacklist configuration file at $BLACKLIST_FILE"
+    sudo touch "$BLACKLIST_FILE"
+fi
+# Add the blacklist entries
+echo "Blacklisting kernel modules..."
+sudo bash -c "cat >> $BLACKLIST_FILE <<EOF
 blacklist ip_tables
 blacklist iptable_nat
 blacklist ip6_tables
 blacklist iptable_mangle
 blacklist iptable_raw
+EOF"
+sudo depmod -a
 update-initramfs -u
+
 #remove persitance rules
 rm -f /etc/iptables/rules.v4 /etc/iptables/rules.v6 
 #make nftables the main rules
@@ -215,7 +229,7 @@ docker ps | grep -q "0.0.0.0:$HTTP_PORT->80/tcp"
 if [[ $? -eq 0 ]]; then
     echo "HTTP service is running on port $HTTP_PORT."
 else
-    echo "HTTP service is NOT running. Check Docker container configurations."
+    echo "HTTP service is NOT running or may be on a different port. Check Docker container configurations."
 fi
 
 #make another backup in your backups
@@ -248,7 +262,10 @@ chattr +i /etc/cron.weekly
 #get rif of cups
 systemctl stop cups
 systemctl disable cups
+systemctl stop cups.service cups.socket cups.path
+systemctl disable cups.service cups.socket cups.path
 apt remove --purge -y cups
+
 
 #disable firewalld and ufw
 systemctl disable --now firewalld
@@ -318,14 +335,17 @@ systemctl restart sshd
 # apt remove -y openssh-server
 
 #start ssh for ubuntu box since it is scored
+systemctl enable ssh
 systemctl start ssh
 systemctl status ssh
 
 #get webmin
 apt install -y wget apt-transport-https software-properties-common
 wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
-sh -c 'echo "deb http://download.webmin.com/download/repository sarge contrib" > /etc/apt/sources.list.d/webmin.list'
+add-apt-repository "deb http://download.webmin.com/download/repository sarge contrib"
 apt install -y webmin --install-recommends
+systemctl enable webmin
+systemctl start webmin 
 
 #make a recursive copy of your backups and put it in another location
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
