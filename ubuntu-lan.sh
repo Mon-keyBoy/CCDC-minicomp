@@ -246,7 +246,16 @@ cp -r "$DOCKER_BACKUP_DIR"/* /var/log/SYSLOG/docker
 
 
 #make usefull aliases for all users
+#show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
+curl -L -o /usr/local/bin/list_users.sh https://raw.githubusercontent.com/Mon-keyBoy/CCDC-minicomp/refs/heads/main/list_users.sh
+chmod +x /usr/local/bin/list_users.sh
+echo "alias listusers='./usr/local/bin/list_users.sh'" >> /etc/bash.bashrc
+#looks for bad binaries
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
+#show bad or altered files
+echo 'alias badfiles="debsums | grep -v 'OK$'"' >> /etc/bash.bashrc 
+
+#commit the alias's
 source /etc/bash.bashrc
 
 #disable cron
@@ -353,9 +362,13 @@ systemctl start webmin
 #sharads line to make kernel modules require signatures, you need to reboot to get rid of any loaded kernel modules though
 sed -i 's/\(vmlinuz.*\)/\1 module.sig_enforce=1 module.sig_unenforce=0/' /boot/grub/grub.cfg
 
-#show bad or altered files
-debsums | grep -v 'OK$' 
 
-#show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
-awk -F: '($3 == 0) || ($3 >= 1000 && $3 < 65534) {print $1}' /etc/passwd
+
+#script done
+echo "."
+echo "."
+echo "."
+echo "."
+echo "."
+echo "Script Complete!"
 
