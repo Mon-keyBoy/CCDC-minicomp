@@ -233,6 +233,7 @@ else
 fi
 
 #make another backup in your backups
+mkdir /var/log/SYSLOG/docker
 cp -r "$DOCKER_BACKUP_DIR"/* /var/log/SYSLOG/docker
 
 
@@ -254,7 +255,8 @@ echo "alias listusers='./usr/local/bin/list_users.sh'" >> /etc/bash.bashrc
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
 #show bad or altered files
 echo 'alias badfiles="debsums | grep -v 'OK$'"' >> /etc/bash.bashrc 
-
+#alias's i like
+echo "alias c='clear'" >> /etc/bash.bashrc 
 #commit the alias's
 source /etc/bash.bashrc
 
