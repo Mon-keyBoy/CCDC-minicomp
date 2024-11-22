@@ -23,6 +23,40 @@ systemctl start auditd
 #make a hidden directory for backups (the directory name is SYSLOG)
 mkdir /var/log/SYSLOG
 
+#delete and stop iptables legacy and iptables-nft
+iptables -F
+iptables -t nat -F
+iptables -t mangle -F
+iptables -X
+iptables -t raw -F
+iptables -t raw -X
+iptables-legacy -F
+iptables-legacy -X
+iptables-nft -F
+iptables-nft -X
+systemctl stop iptables
+systemctl disable iptables
+systemctl stop iptables-legacy
+systemctl disable iptables-legacy
+systemctl stop iptables-persistent
+systemctl disable iptables-persistent
+blacklist ip_tables
+blacklist iptable_nat
+blacklist ip6_tables
+blacklist iptable_mangle
+blacklist iptable_raw
+update-initramfs -u
+#remove persitance rules
+rm -f /etc/iptables/rules.v4 /etc/iptables/rules.v6 
+#make nftables the main rules
+update-alternatives --set iptables /usr/sbin/iptables-nft
+update-alternatives --set ip6tables /usr/sbin/ip6tables-nft
+update-alternatives --set arptables /usr/sbin/arptables-nft
+update-alternatives --set ebtables /usr/sbin/ebtables-nft
+#get rid of all nft rules
+nft flush ruleset
+
+
 
 
 
@@ -67,6 +101,13 @@ if [[ $? -ne 0 ]]; then
     echo "Failed to back up Docker data. Exiting."
     exit 1
 fi
+
+#delete everything and install from dockers official website
+apt remove --purge -y containerd
+apt remove --purge -y docker.io containerd containerd.io docker docker-engine docker-ce docker-ce-cli
+apt autoremove -y
+rm -rf /var/lib/docker /var/lib/containerd
+
 
 # Step 3: Reinstall Docker
 apt update
@@ -161,39 +202,6 @@ apt remove --purge -y cups
 systemctl disable --now firewalld
 systemctl disable --now ufw
 
-#delete and stop iptables legacy and iptables-nft
-iptables -F
-iptables -t nat -F
-iptables -t mangle -F
-iptables -X
-iptables -t raw -F
-iptables -t raw -X
-iptables-legacy -F
-iptables-legacy -X
-iptables-nft -F
-iptables-nft -X
-systemctl stop iptables
-systemctl disable iptables
-systemctl stop iptables-legacy
-systemctl disable iptables-legacy
-systemctl stop iptables-persistent
-systemctl disable iptables-persistent
-blacklist ip_tables
-blacklist iptable_nat
-blacklist ip6_tables
-blacklist iptable_mangle
-blacklist iptable_raw
-update-initramfs -u
-#remove persitance rules
-rm -f /etc/iptables/rules.v4 /etc/iptables/rules.v6 
-#make nftables the main rules
-update-alternatives --set iptables /usr/sbin/iptables-nft
-update-alternatives --set ip6tables /usr/sbin/ip6tables-nft
-update-alternatives --set arptables /usr/sbin/arptables-nft
-update-alternatives --set ebtables /usr/sbin/ebtables-nft
-#get rid of all nft rules
-nft flush ruleset
-
 
 #setup nftables table input
 nft add table ip filter
@@ -214,7 +222,6 @@ nft add rule ip filter input tcp dport 2376 accept
 nft add rule ip filter input tcp dport 10000 accept
 #drop everything else
 nft add rule ip filter input drop
-
 
 
 #setup nftables table output
@@ -263,8 +270,9 @@ systemctl start ssh
 systemctl status ssh
 
 #get webmin
-echo "deb http://download.webmin.com/download/repository sarge contrib" | tee /etc/apt/sources.list.d/webmin.list
+apt install -y wget apt-transport-https software-properties-common
 wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
+sh -c 'echo "deb http://download.webmin.com/download/repository sarge contrib" > /etc/apt/sources.list.d/webmin.list'
 apt install -y webmin --install-recommends
 
 #make a recursive copy of your backups and put it in another location
