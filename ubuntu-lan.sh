@@ -317,6 +317,10 @@ echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file 
 echo 'alias badfiles="debsums | grep -v 'OK$'"' >> /etc/bash.bashrc 
 #alias's i like
 echo "alias c='clear'" >> /etc/bash.bashrc 
+#alias to look for reverse shells
+curl -L -o /usr/local/bin/rev_shells.sh https://raw.githubusercontent.com/Mon-keyBoy/CCDC-minicomp/refs/heads/main/rev_shells.sh
+chmod +x /usr/local/bin/rev_shells.sh
+echo "alias revshells='/usr/local/bin/rev_shells.sh'" >> /etc/bash.bashrc
 #commit the alias's
 source /etc/bash.bashrc
 
