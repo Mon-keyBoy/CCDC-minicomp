@@ -85,9 +85,21 @@ cp -r /var/lib/docker "$DOCKER_BACKUP_DIR"
 for container in $(docker ps -aq); do
     CONTAINER_NAME=$(docker inspect --format='{{.Name}}' "$container" | cut -c2-)
     echo "Backing up container: $CONTAINER_NAME"
-    docker export "$container" > "$DOCKER_BACKUP_DIR/$CONTAINER_NAME.tar"
-    docker inspect "$container" > "$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
+
+    # Export container image
+    IMAGE_NAME=$(docker inspect --format='{{.Config.Image}}' "$container")
+    if ! docker save "$IMAGE_NAME" > "$DOCKER_BACKUP_DIR/$CONTAINER_NAME-image.tar"; then
+        echo "Error saving image for container: $CONTAINER_NAME" >&2
+        continue
+    fi
+
+    # Export container metadata
+    if ! docker inspect "$container" | jq '.[0] | {Name: .Name, Config: .Config, HostConfig: .HostConfig, NetworkSettings: .NetworkSettings}' > "$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"; then
+        echo "Error exporting config for container: $CONTAINER_NAME" >&2
+        continue
+    fi
 done
+
 #volumes
 VOLUME_BACKUP_DIR="$DOCKER_BACKUP_DIR/volumes"
 mkdir -p "$VOLUME_BACKUP_DIR"
@@ -122,35 +134,60 @@ systemctl start docker
 # Step 4: Restore Docker data (ensure no HTTP modifications)
 
 #restore containers
-for container_backup in "$DOCKER_BACKUP_DIR"/*.tar; do
-    CONTAINER_NAME=$(basename "$container_backup" .tar)
+for image_backup in "$DOCKER_BACKUP_DIR"/*-image.tar; do
+    # Extract the container name from the backup file
+    CONTAINER_NAME=$(basename "$image_backup" -image.tar)
     CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
-    
-    echo "Restoring container: $CONTAINER_NAME"
-    
-    # Import the container as an image
-    docker import "$container_backup" "${CONTAINER_NAME}_image"
 
-    # Check for configuration file
+    echo "Restoring container: $CONTAINER_NAME"
+
+    # Load the saved image
+    if ! docker load < "$image_backup"; then
+        echo "Error loading image for $CONTAINER_NAME" >&2
+        continue
+    fi
+
+    # Check for the configuration file
     if [[ -f "$CONFIG_FILE" ]]; then
         echo "Recreating container: $CONTAINER_NAME with configuration..."
-        
+
+        # Extract image name from configuration
+        IMAGE_NAME=$(jq -r '.Config.Image' "$CONFIG_FILE")
+
         # Extract port bindings
-        HOST_PORT=$(jq -r '.HostConfig.PortBindings["80/tcp"][0].HostPort // "80"' "$CONFIG_FILE")
-        
+        PORT_BINDINGS=""
+        PORTS=$(jq -r '.HostConfig.PortBindings | keys[]' "$CONFIG_FILE")
+        for PORT in $PORTS; do
+            HOST_PORT=$(jq -r ".HostConfig.PortBindings[\"$PORT\"][0].HostPort // empty" "$CONFIG_FILE")
+            CONTAINER_PORT=$(echo "$PORT" | cut -d/ -f1)
+            if [[ -n "$HOST_PORT" ]]; then
+                PORT_BINDINGS+=" -p $HOST_PORT:$CONTAINER_PORT"
+            fi
+        done
+
         # Extract environment variables
         ENV_VARS=""
-        while IFS= read -r env; do
-            ENV_VARS+="--env $env "
-        done < <(jq -r '.Config.Env[]' "$CONFIG_FILE")
+        ENV_LIST=$(jq -r '.Config.Env[] // empty' "$CONFIG_FILE")
+        for ENV in $ENV_LIST; do
+            ENV_VARS+=" --env $ENV"
+        done
 
         # Run the container
-        docker run -d --name "$CONTAINER_NAME" -p "$HOST_PORT":80 $ENV_VARS "${CONTAINER_NAME}_image"
+        if ! docker run -d --name "$CONTAINER_NAME" $PORT_BINDINGS $ENV_VARS "$IMAGE_NAME"; then
+            echo "Error recreating container: $CONTAINER_NAME" >&2
+            continue
+        fi
     else
         echo "Configuration file not found for $CONTAINER_NAME. Using default settings."
-        docker run -d --name "$CONTAINER_NAME" -p 80:80 "${CONTAINER_NAME}_image"
+
+        # Run the container with default settings
+        if ! docker run -d --name "$CONTAINER_NAME" "$IMAGE_NAME"; then
+            echo "Error recreating container: $CONTAINER_NAME" >&2
+            continue
+        fi
     fi
 done
+
 
 #restore volumes
 for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
