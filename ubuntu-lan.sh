@@ -123,23 +123,37 @@ systemctl start docker
 # Step 4: Restore Docker data (ensure no HTTP modifications)
 
 #restore containers
+# Restore containers
 for container_backup in "$DOCKER_BACKUP_DIR"/*.tar; do
     CONTAINER_NAME=$(basename "$container_backup" .tar)
+    CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
+    
     echo "Restoring container: $CONTAINER_NAME"
-
+    
+    # Import the container as an image
     docker import "$container_backup" "${CONTAINER_NAME}_image"
 
-    CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
+    # Check for configuration file
     if [[ -f "$CONFIG_FILE" ]]; then
         echo "Recreating container: $CONTAINER_NAME with configuration..."
+        
+        # Extract port bindings
         HOST_PORT=$(jq -r '.HostConfig.PortBindings["80/tcp"][0].HostPort // "80"' "$CONFIG_FILE")
-        ENV_VARS=$(jq -r '.Config.Env[] | split("=") | "--env \"" + .[0] + "=" + .[1] + "\"" | @sh' "$CONFIG_FILE" | tr '\n' ' ')
+        
+        # Extract environment variables
+        ENV_VARS=""
+        while IFS= read -r env; do
+            ENV_VARS+="--env $env "
+        done < <(jq -r '.Config.Env[]' "$CONFIG_FILE")
+
+        # Run the container
         docker run -d --name "$CONTAINER_NAME" -p "$HOST_PORT":80 $ENV_VARS "${CONTAINER_NAME}_image"
     else
         echo "Configuration file not found for $CONTAINER_NAME. Using default settings."
         docker run -d --name "$CONTAINER_NAME" -p 80:80 "${CONTAINER_NAME}_image"
     fi
 done
+
 #restore volumes
 for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
     [ -f "$backup_file" ] || continue
