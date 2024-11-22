@@ -5,13 +5,81 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-#reinstall core utilities and services, make backups of important shit before and after
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-#reinstall essential config files (like ssh) and binaries 
-#binaries IDK IF THESE ARE BINARIES AND THERE ARE DEF MORE YOU SHOULD ADD TO THIS LIST
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-apt install -y --reinstall curl apt-transport-https ca-certificates software-properties-common coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux nftables jq tar
+
+#make a hidden directory for backups (the directory name is SYSLOG)
+mkdir -p /var/log/SYSLOG
+#make backup files
+mkdir -p /var/log/SYSLOG/backs_bf_reinstal
+mkdir -p /var/log/SYSLOG/backs_af_reinstal
+
+
+
+#reinstall essential packages that might be backdoored (this includes their binaries)
+#note that this does not reinstall the config files
+packages=(
+  curl 
+  apt-transport-https 
+  #ca-certificates might affect docker in a bad way
+  software-properties-common 
+  coreutils 
+  #openssh-server we do this one seperately since we want a clean config
+  net-tools 
+  build-essential 
+  libssl-dev 
+  procps 
+  lsof 
+  tmux 
+  nftables 
+  jq 
+  tar 
+  bash 
+  sudo 
+  openssl 
+  util-linux 
+  procps 
+  net-tools 
+  passwd 
+  gnupg 
+  findutils 
+  grep 
+  gawk 
+  sed 
+  wget 
+  gzip 
+  login 
+  cron 
+  systemd 
+  openssh-client 
+  mount 
+  acl 
+  inetutils-ping 
+  lsb-release 
+  iproute2
+  zsh
+)
+
+for package in "${packages[@]}"; do
+  apt install -y --reinstall "$package"
+done
+
+
+
+#reinstall ssh config file, i really should do more configs here like for docker and
+#core services but i don't have time so as proof of concept we are just doing ssh
+cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
+rm /etc/ssh/sshd_config
+apt install --reinstall openssh-server
+#make sshd config more secure
+sed -i 's/^#\?UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
+sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config 
+sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config 
+sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication no/' "/etc/ssh/sshd_config" 	
+sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"	
+chattr +i "/etc/ssh/sshd_config"
+systemctl restart sshd
+
+
 
 #install tools that you want/need
 apt install -y vim
@@ -20,8 +88,7 @@ apt install debsums -y
 systemctl enable auditd
 systemctl start auditd
 
-#make a hidden directory for backups (the directory name is SYSLOG)
-mkdir /var/log/SYSLOG
+
 
 #delete and stop iptables legacy and iptables-nft
 iptables -F
@@ -48,6 +115,7 @@ if [ ! -f "$BLACKLIST_FILE" ]; then
     echo "Creating blacklist configuration file at $BLACKLIST_FILE"
     sudo touch "$BLACKLIST_FILE"
 fi
+
 # Add the blacklist entries
 echo "Blacklisting kernel modules..."
 sudo bash -c "cat >> $BLACKLIST_FILE <<EOF
@@ -72,15 +140,11 @@ nft flush ruleset
 
 
 
+#backup docker before reinstallation later on
+mkdir -p /var/log/SYSLOG/backs_bf_reinstal/docker_backup
+cp -r /etc/docker /var/log/SYSLOG/backs_bf_reinstal/docker_backup
 
-
-
-
-
-
-
-
-#reinstall docker 111111111111111111111111111111111111111111111111111111111111111111111111111
+#reinstall docker 
 
 #Step 1: Stop Docker service
 systemctl stop docker
@@ -94,8 +158,7 @@ DOCKER_BACKUP_DIR="/var/log/docker_backup"
 mkdir -p "$DOCKER_BACKUP_DIR"
 cp -r /var/lib/docker "$DOCKER_BACKUP_DIR"
 
-
-#container
+#containers
 for container in $(docker ps -aq); do
     CONTAINER_NAME=$(docker inspect --format='{{.Name}}' "$container" | cut -c2-)
     echo "Backing up container: $CONTAINER_NAME"
@@ -132,7 +195,6 @@ fi
 apt remove -y containerd
 apt remove -y docker.io containerd containerd.io docker docker-engine docker-ce docker-ce-cli
 rm -rf /var/lib/docker /var/lib/containerd
-
 
 # Step 3: Reinstall Docker
 apt update
@@ -202,7 +264,6 @@ for image_backup in "$DOCKER_BACKUP_DIR"/*-image.tar; do
     fi
 done
 
-
 #restore volumes
 for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
     [ -f "$backup_file" ] || continue
@@ -211,7 +272,6 @@ for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
     docker volume create "$VOLUME_NAME"
     tar -xzf "$backup_file" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$VOLUME_NAME")"
 done
-
 
 # Step 5: Start Docker service
 echo "Starting Docker service..."
@@ -232,17 +292,9 @@ else
     echo "HTTP service is NOT running or may be on a different port. Check Docker container configurations."
 fi
 
-#make another backup in your backups
-mkdir /var/log/SYSLOG/docker
-cp -r "$DOCKER_BACKUP_DIR"/* /var/log/SYSLOG/docker
-
-
-
-
-
-
-
-
+#backup docker after reinstallation
+mkdir -p /var/log/SYSLOG/backs_af_reinstal/docker_backup
+cp -r /etc/docker /var/log/SYSLOG/backs_af_reinstal/docker_backup
 
 
 
@@ -260,6 +312,8 @@ echo "alias c='clear'" >> /etc/bash.bashrc
 #commit the alias's
 source /etc/bash.bashrc
 
+
+
 #disable cron
 systemctl stop cron
 systemctl disable cron
@@ -270,6 +324,8 @@ chattr +i /etc/cron.hourly
 chattr +i /etc/cron.monthly
 chattr +i /etc/cron.weekly
 
+
+
 #get rif of cups
 systemctl stop cups
 systemctl disable cups
@@ -278,9 +334,11 @@ systemctl disable cups.service cups.socket cups.path
 apt remove --purge -y cups
 
 
+
 #disable firewalld and ufw
 systemctl disable --now firewalld
 systemctl disable --now ufw
+
 
 
 #setup nftables table input
@@ -302,7 +360,6 @@ nft add rule ip filter input tcp dport 2376 accept
 nft add rule ip filter input tcp dport 10000 accept
 #drop everything else
 nft add rule ip filter input drop
-
 
 #setup nftables table output
 nft add chain ip filter output { type filter hook output priority 0 \; }
@@ -326,29 +383,26 @@ nft add rule ip filter output drop
 
 #save the rules to a file and make it immutable
 sudo nft list ruleset > /etc/nftables.conf
+cp /etc/nftables.conf /var/log/SYSLOG/nftables_rules.bak
 chattr +i /etc/nftables.conf
 #ensure the nftables service loads the rules on boot
 systemctl enable nftables
 
 
-#make sshd config more secure
-sed -i 's/^#\?UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
-sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config 
-sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config 
-sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication no/' "/etc/ssh/sshd_config" 	
-sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"	
-chattr +i "/etc/ssh/sshd_config"
-systemctl restart sshd
 
 #remove sshd if you want
 # systemctl stop sshd
 # systemctl disable sshd
 # apt remove -y openssh-server
 
+
+
 #start ssh for ubuntu box since it is scored
 systemctl enable ssh
 systemctl start ssh
 systemctl status ssh
+
+
 
 #get webmin
 apt install -y wget apt-transport-https software-properties-common
@@ -358,8 +412,7 @@ apt install -y webmin --install-recommends
 systemctl enable webmin
 systemctl start webmin 
 
-#make a recursive copy of your backups and put it in another location
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 #sharads line to make kernel modules require signatures, you need to reboot to get rid of any loaded kernel modules though
 sed -i 's/\(vmlinuz.*\)/\1 module.sig_enforce=1 module.sig_unenforce=0/' /boot/grub/grub.cfg
@@ -373,4 +426,3 @@ echo "."
 echo "."
 echo "."
 echo "Script Complete!"
-
