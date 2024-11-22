@@ -13,12 +13,15 @@ fi
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 apt install -y --reinstall coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux nftables
 
-#install tools that you want
+#install tools that you want/need
 apt install -y vim
 apt install -y auditd
 apt install debsums -y
 systemctl enable auditd
 systemctl start auditd
+#used to make docker container backups
+apt install -y jq
+apt install -y tar
 
 #make a hidden directory for backups (the directory name is SYSLOG)
 mkdir /var/log/SYSLOG
@@ -43,8 +46,25 @@ fi
 
 # Step 2: Backup Docker data
 DOCKER_BACKUP_DIR="/var/log/docker_backup"
-echo "Backing up Docker data to $DOCKER_BACKUP_DIR..."
+mkdir -p "$DOCKER_BACKUP_DIR"
 cp -r /var/lib/docker "$DOCKER_BACKUP_DIR"
+
+
+#container
+for container in $(docker ps -aq); do
+    CONTAINER_NAME=$(docker inspect --format='{{.Name}}' "$container" | cut -c2-)
+    echo "Backing up container: $CONTAINER_NAME"
+    docker export "$container" > "$DOCKER_BACKUP_DIR/$CONTAINER_NAME.tar"
+    docker inspect "$container" > "$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
+done
+#volumes
+VOLUME_BACKUP_DIR="$DOCKER_BACKUP_DIR/volumes"
+mkdir -p "$VOLUME_BACKUP_DIR"
+for volume in $(docker volume ls -q); do
+    echo "Backing up volume: $volume"
+    tar -czf "$VOLUME_BACKUP_DIR/$volume.tar.gz" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$volume")" .
+done
+#check that backups are there
 if [[ $? -ne 0 ]]; then
     echo "Failed to back up Docker data. Exiting."
     exit 1
@@ -59,19 +79,40 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Step 4: Restore Docker data (ensure no HTTP modifications)
-echo "Restoring Docker data..."
-cp -r "$DOCKER_BACKUP_DIR"/* /var/lib/docker/
-if [[ $? -ne 0 ]]; then
-    echo "Failed to restore Docker data. Exiting."
-    exit 1
-fi
+
+#restore containers
+for container_backup in "$DOCKER_BACKUP_DIR"/*.tar; do
+    CONTAINER_NAME=$(basename "$container_backup" .tar)
+    echo "Restoring container: $CONTAINER_NAME"
+    
+    docker import "$container_backup" "${CONTAINER_NAME}_image"
+
+    CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
+    if [[ -f "$CONFIG_FILE" ]]; then
+        echo "Recreating container: $CONTAINER_NAME with configuration..."
+        HOST_PORT=$(jq -r '.NetworkSettings.Ports["80/tcp"][0].HostPort' "$CONFIG_FILE")
+        docker run -d --name "$CONTAINER_NAME" -p "$HOST_PORT":80 --env-file "$CONFIG_FILE" "${CONTAINER_NAME}_image"
+    else
+        echo "Configuration file not found for $CONTAINER_NAME. Using default settings."
+        docker run -d --name "$CONTAINER_NAME" -p 80:80 "${CONTAINER_NAME}_image"
+    fi
+done
+#restore volumes
+for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
+    VOLUME_NAME=$(basename "$backup_file" .tar.gz)
+    echo "Restoring volume: $VOLUME_NAME"
+    docker volume create "$VOLUME_NAME"
+    tar -xzf "$backup_file" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$VOLUME_NAME")"
+done
+
 
 # Step 5: Start Docker service
 echo "Starting Docker service..."
 systemctl start docker
 if [[ $? -ne 0 ]]; then
-    echo "Failed to start Docker. Exiting."
-    exit 1
+    echo "Failed to start Docker."
+else
+    echo "Docker succesfully started"
 fi
 
 # Step 6: Verify HTTP service is running
