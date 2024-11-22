@@ -23,7 +23,7 @@ packages=(
   #ca-certificates might affect docker in a bad way
   software-properties-common 
   coreutils 
-  #openssh-server we do this one seperately since we want a clean config
+  openssh-server 
   net-tools 
   build-essential 
   libssl-dev 
@@ -68,11 +68,13 @@ done
 #reinstall ssh config file, i really should do more configs here like for docker and
 #core services but i don't have time so as proof of concept we are just doing ssh
 cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
-rm /etc/ssh/sshd_config
-apt download openssh-server
-dpkg-deb -x openssh-server*.deb tmp/
-cp tmp/etc/ssh/sshd_config /etc/ssh/
-apt install --reinstall openssh-server
+# rm /etc/ssh/sshd_config
+# apt download openssh-server
+# dpkg-deb -x openssh-server*.deb tmp/
+# cp tmp/etc/ssh/sshd_config /etc/ssh/
+# apt install --reinstall openssh-server
+#nevermind this doesn't work so i'll just manually audit it
+
 #make sshd config more secure
 sed -i 's/^#\?UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
 sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config 
