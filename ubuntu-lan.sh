@@ -310,7 +310,7 @@ cp -r /etc/docker /var/log/SYSLOG/backs_af_reinstal/docker_backup
 #show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
 curl -L -o /usr/local/bin/list_users.sh https://raw.githubusercontent.com/Mon-keyBoy/CCDC-minicomp/refs/heads/main/list_users.sh
 chmod +x /usr/local/bin/list_users.sh
-echo "alias listusers='./usr/local/bin/list_users.sh'" >> /etc/bash.bashrc
+echo "alias listusers='/usr/local/bin/list_users.sh'" >> /etc/bash.bashrc
 #looks for bad binaries
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
 #show bad or altered files
