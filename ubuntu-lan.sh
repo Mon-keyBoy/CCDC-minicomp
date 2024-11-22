@@ -11,7 +11,7 @@ fi
 #reinstall essential config files (like ssh) and binaries 
 #binaries IDK IF THESE ARE BINARIES AND THERE ARE DEF MORE YOU SHOULD ADD TO THIS LIST
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-apt install -y --reinstall coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux nftables
+apt install -y --reinstall curl apt-transport-https ca-certificates software-properties-common coreutils openssh-server net-tools build-essential libssl-dev procps lsof tmux nftables jq tar
 
 #install tools that you want/need
 apt install -y vim
@@ -19,9 +19,6 @@ apt install -y auditd
 apt install debsums -y
 systemctl enable auditd
 systemctl start auditd
-#used to make docker container backups
-apt install -y jq
-apt install -y tar
 
 #make a hidden directory for backups (the directory name is SYSLOG)
 mkdir /var/log/SYSLOG
