@@ -117,6 +117,9 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+#start docker
+systemctl start docker
+
 # Step 4: Restore Docker data (ensure no HTTP modifications)
 
 #restore containers
