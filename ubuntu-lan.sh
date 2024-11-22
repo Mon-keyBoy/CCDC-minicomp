@@ -23,6 +23,81 @@ systemctl start auditd
 #make a hidden directory for backups (the directory name is SYSLOG)
 mkdir /var/log/SYSLOG
 
+
+
+
+
+
+
+
+
+
+#reinstall docker 111111111111111111111111111111111111111111111111111111111111111111111111111
+
+#Step 1: Stop Docker service
+systemctl stop docker
+if [[ $? -ne 0 ]]; then
+    echo "Failed to stop Docker. Exiting."
+    exit 1
+fi
+
+# Step 2: Backup Docker data
+DOCKER_BACKUP_DIR="/var/log/docker_backup"
+echo "Backing up Docker data to $DOCKER_BACKUP_DIR..."
+cp -r /var/lib/docker "$DOCKER_BACKUP_DIR"
+if [[ $? -ne 0 ]]; then
+    echo "Failed to back up Docker data. Exiting."
+    exit 1
+fi
+
+# Step 3: Reinstall Docker
+apt update
+apt install --reinstall -y docker.io
+if [[ $? -ne 0 ]]; then
+    echo "Failed to reinstall Docker. Exiting."
+    exit 1
+fi
+
+# Step 4: Restore Docker data (ensure no HTTP modifications)
+echo "Restoring Docker data..."
+cp -r "$DOCKER_BACKUP_DIR"/* /var/lib/docker/
+if [[ $? -ne 0 ]]; then
+    echo "Failed to restore Docker data. Exiting."
+    exit 1
+fi
+
+# Step 5: Start Docker service
+echo "Starting Docker service..."
+systemctl start docker
+if [[ $? -ne 0 ]]; then
+    echo "Failed to start Docker. Exiting."
+    exit 1
+fi
+
+# Step 6: Verify HTTP service is running
+echo "Verifying HTTP service..."
+HTTP_PORT=80
+docker ps | grep -q "0.0.0.0:$HTTP_PORT->80/tcp"
+if [[ $? -eq 0 ]]; then
+    echo "HTTP service is running on port $HTTP_PORT."
+else
+    echo "HTTP service is NOT running. Check Docker container configurations."
+    exit 1
+fi
+
+#make another backup in your backups
+cp -r "$DOCKER_BACKUP_DIR"/* /var/log/SYSLOG/docker
+
+
+
+
+
+
+
+
+
+
+
 #make usefull aliases for all users
 echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
 source /etc/bash.bashrc
@@ -95,6 +170,8 @@ nft add rule ip filter input tcp dport 443 accept
 #docker api
 nft add rule ip filter input tcp dport 2375 accept
 nft add rule ip filter input tcp dport 2376 accept
+#webmin
+nft add rule ip filter input tcp dport 10000 accept
 #drop everything else
 nft add rule ip filter input drop
 
@@ -115,6 +192,8 @@ nft add rule ip filter output tcp dport 443 accept
 #docker api
 nft add rule ip filter output tcp dport 2375 accept
 nft add rule ip filter output tcp dport 2376 accept
+#webmin
+nft add rule ip filter output tcp dport 10000 accept
 #drop all other output
 nft add rule ip filter output drop
 
@@ -134,14 +213,14 @@ sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"
 chattr +i "/etc/ssh/sshd_config"
 systemctl restart sshd
 
-#since this is a LAN box we will remove sshd
-systemctl stop sshd
-systemctl disable sshd
-apt remove -y openssh-server
+#remove sshd if you want
+# systemctl stop sshd
+# systemctl disable sshd
+# apt remove -y openssh-server
 
-#setup basic firewall rules
-#do not blobk port 10000 bc ur running webmin on that
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#start ssh for ubuntu box since it is scored
+systemctl start ssh
+systemctl status ssh
 
 #get webmin
 echo "deb http://download.webmin.com/download/repository sarge contrib" | tee /etc/apt/sources.list.d/webmin.list
@@ -149,7 +228,7 @@ wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
 apt install -y webmin --install-recommends
 
 #make a recursive copy of your backups and put it in another location
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 #show bad or altered files
 debsums | grep -v 'OK$' 
