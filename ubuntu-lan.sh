@@ -14,6 +14,8 @@ mkdir -p /var/log/SYSLOG/backs_bf_reinstal
 mkdir -p /var/log/SYSLOG/backs_af_reinstal
 
 
+#get nala for SPEED
+apt update && apt install -y nala
 
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
@@ -61,7 +63,7 @@ packages=(
 )
 
 for package in "${packages[@]}"; do
-  apt install -y --reinstall "$package"
+  nala install -y --reinstall "$package"
 done
 
 
