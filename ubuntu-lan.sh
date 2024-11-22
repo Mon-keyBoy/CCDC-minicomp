@@ -58,6 +58,7 @@ done
 VOLUME_BACKUP_DIR="$DOCKER_BACKUP_DIR/volumes"
 mkdir -p "$VOLUME_BACKUP_DIR"
 for volume in $(docker volume ls -q); do
+    [ -n "$volume" ] || continue
     echo "Backing up volume: $volume"
     tar -czf "$VOLUME_BACKUP_DIR/$volume.tar.gz" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$volume")" .
 done
@@ -81,14 +82,15 @@ fi
 for container_backup in "$DOCKER_BACKUP_DIR"/*.tar; do
     CONTAINER_NAME=$(basename "$container_backup" .tar)
     echo "Restoring container: $CONTAINER_NAME"
-    
+
     docker import "$container_backup" "${CONTAINER_NAME}_image"
 
     CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
     if [[ -f "$CONFIG_FILE" ]]; then
         echo "Recreating container: $CONTAINER_NAME with configuration..."
-        HOST_PORT=$(jq -r '.NetworkSettings.Ports["80/tcp"][0].HostPort' "$CONFIG_FILE")
-        docker run -d --name "$CONTAINER_NAME" -p "$HOST_PORT":80 --env-file "$CONFIG_FILE" "${CONTAINER_NAME}_image"
+        HOST_PORT=$(jq -r '.HostConfig.PortBindings["80/tcp"][0].HostPort // "80"' "$CONFIG_FILE")
+        ENV_VARS=$(jq -r '.Config.Env[] | split("=") | "--env \"" + .[0] + "=" + .[1] + "\"" | @sh' "$CONFIG_FILE" | tr '\n' ' ')
+        docker run -d --name "$CONTAINER_NAME" -p "$HOST_PORT":80 $ENV_VARS "${CONTAINER_NAME}_image"
     else
         echo "Configuration file not found for $CONTAINER_NAME. Using default settings."
         docker run -d --name "$CONTAINER_NAME" -p 80:80 "${CONTAINER_NAME}_image"
@@ -96,6 +98,7 @@ for container_backup in "$DOCKER_BACKUP_DIR"/*.tar; do
 done
 #restore volumes
 for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
+    [ -f "$backup_file" ] || continue
     VOLUME_NAME=$(basename "$backup_file" .tar.gz)
     echo "Restoring volume: $VOLUME_NAME"
     docker volume create "$VOLUME_NAME"
