@@ -271,6 +271,9 @@ apt install -y webmin --install-recommends
 #make a recursive copy of your backups and put it in another location
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+#sharads line to make kernel modules require signatures, you need to reboot to get rid of any loaded kernel modules though
+sed -i 's/\(vmlinuz.*\)/\1 module.sig_enforce=1 module.sig_unenforce=0/' /boot/grub/grub.cfg
+
 #show bad or altered files
 debsums | grep -v 'OK$' 
 
