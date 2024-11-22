@@ -17,6 +17,7 @@ mkdir -p /var/log/SYSLOG/backs_af_reinstal
 
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
+#THIS WOULD BE A LOT FASTER AND BETTER WITH NALA INSTEAD OF APT
 packages=(
   curl 
   apt-transport-https 
@@ -82,9 +83,9 @@ sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_co
 sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication no/' "/etc/ssh/sshd_config" 	
 sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"	
 chattr +i "/etc/ssh/sshd_config"
-systemctl restart sshd
-systemctl start sshd
-systemctl enable sshd
+systemctl restart ssh
+systemctl start ssh
+systemctl enable ssh
 
 
 
@@ -407,17 +408,17 @@ systemctl enable nftables
 #start ssh for ubuntu box since it is scored
 systemctl enable ssh
 systemctl start ssh
-systemctl status ssh
 
 
 
 #get webmin
-apt install -y wget apt-transport-https software-properties-common
-wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
-add-apt-repository "deb http://download.webmin.com/download/repository sarge contrib"
-apt install -y webmin --install-recommends
-systemctl enable webmin
-systemctl start webmin 
+# echo "deb http://download.webmin.com/download/repository sarge contrib" | tee /etc/apt/sources.list.d/webmin.list
+# wget -qO - http://www.webmin.com/jcameron-key.asc | apt-key add -
+# apt update
+# sudo apt install -y webmin --install-recommends
+# systemctl enable webmin
+# systemctl start webmin 
+#IDK IF THIS EVEN WORKS BUT WE ARE NOT USING WEBIN SINCE THERE ARE NO GUI'S!!!
 
 
 
@@ -433,3 +434,4 @@ echo "."
 echo "."
 echo "."
 echo "Script Complete!"
+rm ubuntu-lan.sh
