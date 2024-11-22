@@ -69,6 +69,9 @@ done
 #core services but i don't have time so as proof of concept we are just doing ssh
 cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 rm /etc/ssh/sshd_config
+apt download openssh-server
+dpkg-deb -x openssh-server*.deb tmp/
+cp tmp/etc/ssh/sshd_config /etc/ssh/
 apt install --reinstall openssh-server
 #make sshd config more secure
 sed -i 's/^#\?UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
@@ -78,6 +81,8 @@ sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication no/' "/etc/ssh/sshd_con
 sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"	
 chattr +i "/etc/ssh/sshd_config"
 systemctl restart sshd
+systemctl start sshd
+systemctl enable sshd
 
 
 
