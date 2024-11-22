@@ -102,10 +102,9 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-#delete everything and install from dockers official website
-apt remove --purge -y containerd
-apt remove --purge -y docker.io containerd containerd.io docker docker-engine docker-ce docker-ce-cli
-apt autoremove -y
+#delete everything 
+apt remove -y containerd
+apt remove -y docker.io containerd containerd.io docker docker-engine docker-ce docker-ce-cli
 rm -rf /var/lib/docker /var/lib/containerd
 
 
@@ -123,7 +122,6 @@ systemctl start docker
 # Step 4: Restore Docker data (ensure no HTTP modifications)
 
 #restore containers
-# Restore containers
 for container_backup in "$DOCKER_BACKUP_DIR"/*.tar; do
     CONTAINER_NAME=$(basename "$container_backup" .tar)
     CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
