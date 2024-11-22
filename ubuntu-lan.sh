@@ -120,7 +120,6 @@ if [[ $? -eq 0 ]]; then
     echo "HTTP service is running on port $HTTP_PORT."
 else
     echo "HTTP service is NOT running. Check Docker container configurations."
-    exit 1
 fi
 
 #make another backup in your backups
