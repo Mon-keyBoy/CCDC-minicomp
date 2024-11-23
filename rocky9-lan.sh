@@ -261,7 +261,6 @@ systemctl enable dovecot
 sed -i 's/\(vmlinuz.*\)/\1 module.sig_enforce=1 module.sig_unenforce=0/' /boot/grub/grub.cfg
 
 
-
 #make backups immutable
 chattr +i /var/log/SYSLOG/backs_bf_reinstal
 chattr +i /var/log/SYSLOG/backs_af_reinstal
