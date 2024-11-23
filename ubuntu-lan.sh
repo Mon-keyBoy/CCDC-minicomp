@@ -17,23 +17,23 @@ mkdir -p /var/log/SYSLOG/backs_af_reinstal
 
 #reinstall real PAM .so's
 #backup configs
-mkdir /var/log/SYSLOG/backs_bf_reinstal/pam_confs
-cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
+###mkdir /var/log/SYSLOG/backs_bf_reinstal/pam_confs
+###cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
 #delete .so's and configs
 #can't run this either without bricking ur box
 #apt purge libpam0g libpam-modules libpam-modules-bin libpam-runtime
 # this line will not allow any sudo shells to be opened, none can be opened this will brick your box!!!!
 #rm -rf /etc/pam.d/*
 #reinstall the package that holds the clean configs for pam.d/
-apt install -y --reinstall libpam-runtime
+###apt install -y --reinstall libpam-runtime
 #reinstall everything
-apt install -y --reinstall libpam0g libpam-modules libpam-modules-bin
+###apt install -y --reinstall libpam0g libpam-modules libpam-modules-bin
 #make immutable
-chattr +i /lib/x86_64-linux-gnu/security
-chattr +i /usr/lib/x86_64-linux-gnu/security
-chattr +i /etc/pam.d/*
+###chattr +i /lib/x86_64-linux-gnu/security
+###chattr +i /usr/lib/x86_64-linux-gnu/security
+###chattr +i /etc/pam.d/*
 #copy ssh config before reinstallation
-cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
+###cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 
 
 #stop sshd
@@ -186,10 +186,8 @@ cp -r /etc/docker /var/log/SYSLOG/backs_bf_reinstal/docker_backup
 #reinstall docker 
 
 #Step 1: Stop Docker service
-systemctl stop docker.socket
 systemctl stop docker
 systemctl disable docker
-systemctl disable docker.socket
 
 if [[ $? -ne 0 ]]; then
     echo "Failed to stop Docker. Exiting."
@@ -248,11 +246,8 @@ if [[ $? -ne 0 ]]; then
 fi
 
 #start docker
-systemctl start docker.socket
 systemctl start docker
-systemctl start docker.socket
 systemctl enable docker
-systemctl enable docker.socket
 
 # Step 4: Restore Docker data (ensure no HTTP modifications)
 
