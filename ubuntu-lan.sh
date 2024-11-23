@@ -165,6 +165,7 @@ blacklist iptable_raw
 EOF"
 
 depmod -a
+apt install -y initramfs-tools
 update-initramfs -u
 
 #remove persitance rules
