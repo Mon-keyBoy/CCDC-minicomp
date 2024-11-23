@@ -46,7 +46,6 @@ cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 #THIS WOULD BE A LOT FASTER AND BETTER WITH NALA INSTEAD OF APT
 packages=(
   curl 
-  apt-transport-https 
   #ca-certificates might affect docker in a bad way
   software-properties-common 
   coreutils 
@@ -394,6 +393,9 @@ nft add chain ip filter input { type filter hook input priority 0 \; }
 # Allow established and related traffic
 nft add rule ip filter input ct state established,related log accept
 #allow rules input
+#DNS
+nft add rule ip filter input udp sport 53 accept
+nft add rule ip filter input tcp sport 53 accept
 #ssh
 nft add rule ip filter input tcp dport 22 accept
 #docker (HTTP)
@@ -412,6 +414,7 @@ nft add rule ip filter output ct state established,related log accept
 #allow rules output
 #DNS
 nft add rule ip filter output udp dport 53 accept
+nft add rule ip filter output tcp dport 53 accept
 #ssh
 nft add rule ip filter output tcp dport 22 accept
 #docker (HTTP)
