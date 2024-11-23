@@ -182,6 +182,10 @@ cp -r /etc/docker /var/log/SYSLOG/backs_bf_reinstal/docker_backup
 
 #Step 1: Stop Docker service
 systemctl stop docker
+systemctl stop docker.socket
+systemctl disable docker
+systemctl disable docker.socket
+
 if [[ $? -ne 0 ]]; then
     echo "Failed to stop Docker. Exiting."
     exit 1
@@ -240,6 +244,9 @@ fi
 
 #start docker
 systemctl start docker
+systemctl start docker.socket
+systemctl enable docker
+systemctl enable docker.socket
 
 # Step 4: Restore Docker data (ensure no HTTP modifications)
 
@@ -462,4 +469,4 @@ echo "."
 echo "."
 echo "."
 echo "Script Complete!"
-rm ubuntu-lan.sh
+rm rocky9-lan.sh
