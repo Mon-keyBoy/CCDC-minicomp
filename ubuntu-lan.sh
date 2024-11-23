@@ -37,8 +37,9 @@ cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 
 
 #stop sshd
-systemctl stop ssh
-systemctl disable ssh
+# systemctl stop ssh
+# systemctl disable ssh
+# apt purge -y openssh-server
 
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
@@ -49,7 +50,7 @@ packages=(
   #ca-certificates might affect docker in a bad way
   software-properties-common 
   coreutils 
-  openssh-server 
+#   openssh-server 
   net-tools 
   build-essential 
   libssl-dev 
