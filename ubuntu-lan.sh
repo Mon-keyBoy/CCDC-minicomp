@@ -35,6 +35,11 @@ chattr +i /etc/pam.d/*
 #copy ssh config before reinstallation
 cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 
+
+#stop sshd
+systemctl stop ssh
+systemctl disable ssh
+
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
 #THIS WOULD BE A LOT FASTER AND BETTER WITH NALA INSTEAD OF APT
@@ -439,9 +444,8 @@ systemctl enable nftables
 
 
 #start ssh for ubuntu box since it is scored
-systemctl enable ssh
 systemctl start ssh
-
+systemctl enable ssh
 
 
 #get webmin
