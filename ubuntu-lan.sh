@@ -25,14 +25,15 @@ cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
 # this line will not allow any sudo shells to be opened, none can be opened this will brick your box!!!!
 #rm -rf /etc/pam.d/*
 #reinstall the package that holds the clean configs for pam.d/
-apt install --reinstall libpam-runtime
+apt install -y --reinstall libpam-runtime
 #reinstall everything
-apt install --reinstall libpam0g libpam-modules libpam-modules-bin
+apt install -y --reinstall libpam0g libpam-modules libpam-modules-bin
 #make immutable
 chattr +i /lib/x86_64-linux-gnu/security
 chattr +i /usr/lib/x86_64-linux-gnu/security
 chattr +i /etc/pam.d/*
-
+#copy ssh config before reinstallation
+cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
@@ -57,8 +58,6 @@ packages=(
   sudo 
   openssl 
   util-linux 
-  procps 
-  net-tools 
   passwd 
   gnupg 
   findutils 
@@ -85,9 +84,10 @@ done
 
 
 
+#copy ssh config after reinstallation
+cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_af_reinstal/sshd_config.bak
 #reinstall ssh config file, i really should do more configs here like for docker and
 #core services but i don't have time so as proof of concept we are just doing ssh
-cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 # rm /etc/ssh/sshd_config
 # apt download openssh-server
 # dpkg-deb -x openssh-server*.deb tmp/
@@ -125,8 +125,14 @@ iptables -X
 iptables -t raw -F
 iptables -t raw -X
 iptables-legacy -F
+iptables-legacy -t nat -F
+iptables-legacy -t mangle -F
+iptables-legacy -t raw -F
 iptables-legacy -X
 iptables-nft -F
+iptables-nft -t nat -F
+iptables-nft -t mangle -F
+iptables-nft -t raw -F
 iptables-nft -X
 systemctl stop iptables
 systemctl disable iptables
@@ -145,14 +151,15 @@ fi
 
 # Add the blacklist entries
 echo "Blacklisting kernel modules..."
-sudo bash -c "cat >> $BLACKLIST_FILE <<EOF
+bash -c "cat >> $BLACKLIST_FILE <<EOF
 blacklist ip_tables
 blacklist iptable_nat
 blacklist ip6_tables
 blacklist iptable_mangle
 blacklist iptable_raw
 EOF"
-sudo depmod -a
+
+depmod -a
 update-initramfs -u
 
 #remove persitance rules
@@ -387,8 +394,6 @@ nft add rule ip filter input tcp dport 443 accept
 #docker api
 nft add rule ip filter input tcp dport 2375 accept
 nft add rule ip filter input tcp dport 2376 accept
-#webmin
-nft add rule ip filter input tcp dport 10000 accept
 #drop everything else
 nft add rule ip filter input drop
 
@@ -407,13 +412,11 @@ nft add rule ip filter output tcp dport 443 accept
 #docker api
 nft add rule ip filter output tcp dport 2375 accept
 nft add rule ip filter output tcp dport 2376 accept
-#webmin
-nft add rule ip filter output tcp dport 10000 accept
 #drop all other output
 nft add rule ip filter output drop
 
 #save the rules to a file and make it immutable
-sudo nft list ruleset > /etc/nftables.conf
+nft list ruleset > /etc/nftables.conf
 cp /etc/nftables.conf /var/log/SYSLOG/nftables_rules.bak
 chattr +i /etc/nftables.conf
 #ensure the nftables service loads the rules on boot
