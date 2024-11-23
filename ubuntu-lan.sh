@@ -15,6 +15,25 @@ mkdir -p /var/log/SYSLOG/backs_af_reinstal
 
 
 
+#reinstall real PAM .so's
+#backup configs
+mkdir /var/log/SYSLOG/backs_bf_reinstal/pam_confs
+cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
+#delete .so's and configs
+#can't run this either without bricking ur box
+#apt purge libpam0g libpam-modules libpam-modules-bin libpam-runtime
+# this line will not allow any sudo shells to be opened, none can be opened this will brick your box!!!!
+#rm -rf /etc/pam.d/*
+#reinstall the package that holds the clean configs for pam.d/
+apt install --reinstall libpam-runtime
+#reinstall everything
+apt install --reinstall libpam0g libpam-modules libpam-modules-bin
+#make immutable
+chattr +i /lib/x86_64-linux-gnu/security
+chattr +i /usr/lib/x86_64-linux-gnu/security
+chattr +i /etc/pam.d/*
+
+
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
 #THIS WOULD BE A LOT FASTER AND BETTER WITH NALA INSTEAD OF APT
@@ -429,7 +448,9 @@ systemctl start ssh
 #sharads line to make kernel modules require signatures, you need to reboot to get rid of any loaded kernel modules though
 sed -i 's/\(vmlinuz.*\)/\1 module.sig_enforce=1 module.sig_unenforce=0/' /boot/grub/grub.cfg
 
-
+#make backups immutable
+chattr +i /var/log/SYSLOG/backs_bf_reinstal
+chattr +i /var/log/SYSLOG/backs_af_reinstal
 
 #script done
 echo "."
