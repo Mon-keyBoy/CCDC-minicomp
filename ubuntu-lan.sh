@@ -186,14 +186,14 @@ cp -r /etc/docker /var/log/SYSLOG/backs_bf_reinstal/docker_backup
 
 #reinstall docker 
 
-#Step 1: Stop Docker service
-systemctl stop docker
-systemctl disable docker
+# Step 1: Stop Docker service
+# systemctl stop docker
+# systemctl disable docker
 
-if [[ $? -ne 0 ]]; then
-    echo "Failed to stop Docker. Exiting."
-    exit 1
-fi
+# if [[ $? -ne 0 ]]; then
+#     echo "Failed to stop Docker. Exiting."
+#     exit 1
+# fi
 
 # Step 2: Backup Docker data
 DOCKER_BACKUP_DIR="/var/log/docker_backup"
