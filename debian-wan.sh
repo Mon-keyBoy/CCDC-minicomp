@@ -18,60 +18,11 @@ mkdir -p /var/log/SYSLOG/backs_af_reinstal
 cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 
 
-#reinstall essential packages that might be backdoored (this includes their binaries)
-#note that this does not reinstall the config files
-#THIS WOULD BE A LOT FASTER AND BETTER WITH NALA INSTEAD OF APT
-packages=(
-  curl 
-  software-properties-common 
-  coreutils 
-  net-tools 
-  build-essential 
-  libssl-dev 
-  procps 
-  lsof 
-  tmux 
-  nftables 
-  jq 
-  tar 
-  bash 
-  sudo 
-  util-linux 
-  passwd 
-  gnupg 
-  findutils 
-  grep 
-  gawk 
-  sed 
-  wget 
-  gzip 
-  login 
-  cron 
-  systemd 
-  mount 
-  acl 
-  iputils-ping 
-  lsb-release 
-  iproute2
-  zsh
-)
-
-for package in "${packages[@]}"; do
-  apt install -y --reinstall "$package"
-done
-
 
 
 #copy ssh config after reinstallation
 cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_af_reinstal/sshd_config.bak
-#reinstall ssh config file, i really should do more configs here like for docker and
-#core services but i don't have time so as proof of concept we are just doing ssh
-# rm /etc/ssh/sshd_config
-# apt download openssh-server
-# dpkg-deb -x openssh-server*.deb tmp/
-# cp tmp/etc/ssh/sshd_config /etc/ssh/
-# apt install --reinstall openssh-server
-#nevermind this doesn't work so i'll just manually audit it
+
 
 #make sshd config more secure
 sed -i 's/^#\?UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
@@ -79,176 +30,183 @@ sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config 
 sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication no/' "/etc/ssh/sshd_config" 	
 sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' "/etc/ssh/sshd_config"	
-chattr +i "/etc/ssh/sshd_config"
-systemctl restart ssh
-systemctl start ssh
-systemctl enable ssh
+chflags schg /etc/ssh/sshd_config
+service sshd restart
 
 
 
 #install tools that you want/need
-apt install -y vim
-apt install -y auditd
-apt install debsums -y
-systemctl enable auditd
-systemctl start auditd
+pkg install -y vim auditdistd
+sysrc auditdistd_enable="YES"
+service auditdistd start
+
+
+#delete and stop freebsd firewalls
+pfctl -F all
+service pf stop
+sysrc pf_enable="NO"
+echo "" > /etc/pf.conf
+nft flush ruleset
+rm -f /etc/nftables.conf
 
 
 
-#delete and stop iptables legacy and iptables-nft
-iptables -F
-iptables -t nat -F
-iptables -t mangle -F
-iptables -X
-iptables -t raw -F
-iptables -t raw -X
-iptables-legacy -F
-iptables-legacy -t nat -F
-iptables-legacy -t mangle -F
-iptables-legacy -t raw -F
-iptables-legacy -X
-iptables-nft -F
-iptables-nft -t nat -F
-iptables-nft -t mangle -F
-iptables-nft -t raw -F
-iptables-nft -X
-systemctl stop iptables
-systemctl disable iptables
-systemctl stop iptables-legacy
-systemctl disable iptables-legacy
-systemctl stop iptables-persistent
-systemctl disable iptables-persistent
+# Define the kernel module blacklist configuration file
+BLACKLIST_FILE="/boot/loader.conf"
 
-# Define the blacklist configuration file
-BLACKLIST_FILE="/etc/modprobe.d/blacklist.conf"
 # Check if the file exists, create it if it doesn't
 if [ ! -f "$BLACKLIST_FILE" ]; then
     echo "Creating blacklist configuration file at $BLACKLIST_FILE"
-    sudo touch "$BLACKLIST_FILE"
+    touch "$BLACKLIST_FILE"
 fi
 
 # Add the blacklist entries
 echo "Blacklisting kernel modules..."
-bash -c "cat >> $BLACKLIST_FILE <<EOF
-blacklist ip_tables
-blacklist iptable_nat
-blacklist ip6_tables
-blacklist iptable_mangle
-blacklist iptable_raw
-EOF"
+cat >> "$BLACKLIST_FILE" <<EOF
+# Blacklist unnecessary modules
+ipfw_load="NO"
+ipfw_nat_load="NO"
+ip6fw_load="NO"
+ip_mroute_load="NO"
+EOF
 
-depmod -a
-apt install -y initramfs-tools
-update-initramfs -u
+# Unload the kernel modules if they are currently loaded
+kldstat | grep -E "ipfw|ipfw_nat|ip6fw|ip_mroute" | while read -r line; do
+    module=$(echo "$line" | awk '{print $NF}')
+    echo "Unloading $module..."
+    kldunload "$module" || echo "Failed to unload $module"
+done
+
+
+
 
 #remove persitance rules
-rm -f /etc/iptables/rules.v4 /etc/iptables/rules.v6 
 #make nftables the main rules
-update-alternatives --set iptables /usr/sbin/iptables-nft
-update-alternatives --set ip6tables /usr/sbin/ip6tables-nft
-update-alternatives --set arptables /usr/sbin/arptables-nft
-update-alternatives --set ebtables /usr/sbin/ebtables-nft
+sysrc pf_enable="NO"
+sysrc ipfw_enable="NO"
+sysrc nftables_enable="YES"
 #get rid of all nft rules
 nft flush ruleset
 
 
 
-#make usefull aliases for all users
-#show all the users so you can audit them DO NOT DELETE THE CORE ROOT USERS LIKE TOOR!!!!!!
+# Define useful aliases for all users in FreeBSD
+
+# Create and download scripts for auditing users and detecting reverse shells
 curl -L -o /usr/local/bin/list_users.sh https://raw.githubusercontent.com/Mon-keyBoy/CCDC-minicomp/refs/heads/main/list_users.sh
 chmod +x /usr/local/bin/list_users.sh
-echo "alias listusers='/usr/local/bin/list_users.sh'" >> /etc/bash.bashrc
-#looks for bad binaries
-echo 'alias badbins="find / \( -perm -4000 -o -perm -2000 \) -type f -exec file {} \; 2>/dev/null | grep -v ELF"' >> /etc/bash.bashrc
-#show bad or altered files
-echo 'alias badfiles="debsums | grep -v 'OK$'"' >> /etc/bash.bashrc 
-#alias's i like
-echo "alias c='clear'" >> /etc/bash.bashrc 
-#alias to look for reverse shells
+echo "alias listusers='/usr/local/bin/list_users.sh'" >> /usr/share/skel/dot.cshrc
+echo "alias listusers='/usr/local/bin/list_users.sh'" >> /usr/share/skel/dot.shrc
+
 curl -L -o /usr/local/bin/rev_shells.sh https://raw.githubusercontent.com/Mon-keyBoy/CCDC-minicomp/refs/heads/main/rev_shells.sh
 chmod +x /usr/local/bin/rev_shells.sh
-echo "alias revshells='/usr/local/bin/rev_shells.sh'" >> /etc/bash.bashrc
-#commit the alias's
-source /etc/bash.bashrc
+echo "alias revshells='/usr/local/bin/rev_shells.sh'" >> /usr/share/skel/dot.cshrc
+echo "alias revshells='/usr/local/bin/rev_shells.sh'" >> /usr/share/skel/dot.shrc
+
+# Alias to find users
+echo "alias listusers='pw usershow -a'" >> /usr/share/skel/dot.cshrc
+echo "alias listusers='pw usershow -a'" >> /usr/share/skel/dot.shrc
+
+# Alias to find SUID/SGID binaries
+echo "alias badbins=\"find / -perm +6000 -type f -exec file {} \\; | grep -v ELF\"" >> /usr/share/skel/dot.cshrc
+echo "alias badbins=\"find / -perm +6000 -type f -exec file {} \\; | grep -v ELF\"" >> /usr/share/skel/dot.shrc
+
+# Alias to clear the screen
+echo "alias c='clear'" >> /usr/share/skel/dot.cshrc
+echo "alias c='clear'" >> /usr/share/skel/dot.shrc
+
+# Alias to show bad or altered files (no `debsums` in FreeBSD, adjust accordingly)
+echo "alias badfiles=\"pkg check -s\"" >> /usr/share/skel/dot.cshrc
+echo "alias badfiles=\"pkg check -s\"" >> /usr/share/skel/dot.shrc
+
+# Apply aliases to the current user's shell
+source /usr/share/skel/dot.cshrc
+source /usr/share/skel/dot.shrc
+source ~/.cshrc
+source ~/.shrc
 
 
 
-#disable cron
-systemctl stop cron
-systemctl disable cron
-chattr +i /etc/crontab
-chattr +i /etc/cron.d
-chattr +i /etc/cron.daily
-chattr +i /etc/cron.hourly
-chattr +i /etc/cron.monthly
-chattr +i /etc/cron.weekly
+
+# Disable and remove unnecessary services (cron and cups)
+service cron stop
+sysrc cron_enable="NO"
+chflags schg /etc/crontab
+
+service cups stop
+sysrc cups_enable="NO"
+pkg delete -y cups
 
 
 
-#get rif of cups
-systemctl stop cups
-systemctl disable cups
-systemctl stop cups.service cups.socket cups.path
-systemctl disable cups.service cups.socket cups.path
-apt remove --purge -y cups
+
+#!/bin/sh
+
+# Ensure the script is run as root
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script must be run as root (use sudo)."
+  exit 1
+fi
+
+# Load the nftables kernel module (if not already loaded)
+kldstat | grep -q nftables || kldload nftables
+
+# Create the nftables configuration
+NFTABLES_CONF="/etc/nftables.conf"
+
+# Define the ruleset
+cat > "$NFTABLES_CONF" <<EOF
+table ip filter {
+    chain input {
+        type filter hook input priority 0; policy drop;
+        ct state established,related log accept
+        tcp dport 22 accept  # Allow SSH
+        tcp dport 3306 accept  # Allow MySQL
+        tcp dport 33060 accept  # Allow MySQL
+    }
+
+    chain output {
+        type filter hook output priority 0; policy drop;
+        ct state established,related log accept
+        tcp dport 22 accept  # Allow SSH
+        tcp dport 3306 accept  # Allow MySQL
+        tcp dport 33060 accept  # Allow MySQL
+    }
+}
+EOF
+
+# Flush existing rules and apply the new ruleset
+nft flush ruleset
+nft -f "$NFTABLES_CONF"
+
+# Create a backup of the nftables rules
+BACKUP_DIR="/var/log/SYSLOG"
+mkdir -p "$BACKUP_DIR"
+cp "$NFTABLES_CONF" "$BACKUP_DIR/nftables_rules.bak"
+
+# Make the nftables configuration file immutable
+chflags schg "$NFTABLES_CONF"
+
+# Ensure the nftables service starts on boot
+sysrc nftables_enable="YES"
+service nftables start
+
+echo "nftables firewall rules applied and saved. Configuration made immutable."
 
 
 
-#disable firewalld and ufw
-systemctl disable --now firewalld
-systemctl disable --now ufw
+# Enforce stricter kernel controls using securelevel
+sysctl kern.securelevel=2
+echo "kern_securelevel_enable=YES" >> /etc/rc.conf
+echo "kern_securelevel=2" >> /etc/rc.conf
 
+# Make backup directories immutable
+chflags schg /var/log/SYSLOG/backs_bf_reinstal
+chflags schg /var/log/SYSLOG/backs_af_reinstal
 
-
-#setup nftables table input
-nft add table ip filter
-nft add chain ip filter input { type filter hook input priority 0 \; }
-# Allow established and related traffic
-nft add rule ip filter input ct state established,related log accept
-#allow rules input
-#ssh
-nft add rule ip filter input tcp dport 22 accept
-#FTP
-nft add rule ip filter input tcp dport 21 accept
-#FTP
-nft add rule ip filter input tcp dport 20 accept
-#drop everything else
-nft add rule ip filter input drop
-
-#setup nftables table output
-nft add chain ip filter output { type filter hook output priority 0 \; }
-nft add rule ip filter output ct state established,related log accept
-#allow rules output
-#ssh
-nft add rule ip filter output tcp dport 22 accept
-#FTP
-nft add rule ip filter output tcp dport 21 accept
-#FTP
-nft add rule ip filter output tcp dport 20 accept
-#drop all other output
-nft add rule ip filter output drop
-
-#save the rules to a file and make it immutable
-nft list ruleset > /etc/nftables.conf
-cp /etc/nftables.conf /var/log/SYSLOG/nftables_rules.bak
-chattr +i /etc/nftables.conf
-#ensure the nftables service loads the runs on boot
-systemctl enable nftables
-
-
-
-#sharads line to make kernel modules require signatures, you need to reboot to get rid of any loaded kernel modules though
-sed -i 's/\(vmlinuz.*\)/\1 module.sig_enforce=1 module.sig_unenforce=0/' /boot/grub/grub.cfg
-
-#make backups immutable
-chattr +i /var/log/SYSLOG/backs_bf_reinstal
-chattr +i /var/log/SYSLOG/backs_af_reinstal
-
-#script done
-echo "."
-echo "."
-echo "."
-echo "."
-echo "."
+# Print completion message
+echo "..."
 echo "Script Complete!"
-rm ubuntu-lan.sh
+
+# Remove unnecessary script files
+rm -f ubuntu-lan.sh
