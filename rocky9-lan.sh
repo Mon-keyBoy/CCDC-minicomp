@@ -15,14 +15,9 @@ mkdir -p /var/log/SYSLOG/backs_af_reinstal
 
 
 
-#reinstall real PAM .so's
-#backup configs
-mkdir /var/log/SYSLOG/backs_bf_reinstal/pam_confs
-cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
-#reinstall the package that holds the clean configs for pam.d/
-dnf reinstall -y pam
-
-
+#stop sshd
+systemctl stop ssh
+systemctl disable ssh
 
 #reinstall essential packages that might be backdoored (this includes their binaries)
 #note that this does not reinstall the config files
@@ -76,9 +71,7 @@ for package in "${packages[@]}"; do
   fi
 done
 
-#make pam stuff immutable
-chattr +i /lib64/security
-chattr +i /etc/pam.d/*
+
 
 #delete openssh-server
 dnf remove -y openssh-server
