@@ -15,25 +15,25 @@ mkdir -p /var/log/SYSLOG/backs_af_reinstal
 
 
 
-#reinstall real PAM .so's
-#backup configs
-###mkdir /var/log/SYSLOG/backs_bf_reinstal/pam_confs
-###cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
-#delete .so's and configs
-#can't run this either without bricking ur box
-#apt purge libpam0g libpam-modules libpam-modules-bin libpam-runtime
-# this line will not allow any sudo shells to be opened, none can be opened this will brick your box!!!!
-#rm -rf /etc/pam.d/*
-#reinstall the package that holds the clean configs for pam.d/
-###apt install -y --reinstall libpam-runtime
-#reinstall everything
-###apt install -y --reinstall libpam0g libpam-modules libpam-modules-bin
-#make immutable
-###chattr +i /lib/x86_64-linux-gnu/security
-###chattr +i /usr/lib/x86_64-linux-gnu/security
-###chattr +i /etc/pam.d/*
+# #reinstall real PAM .so's
+# #backup configs
+# mkdir /var/log/SYSLOG/backs_bf_reinstal/pam_confs
+# cp -r /etc/pam.d /var/log/SYSLOG/backs_bf_reinstal/pam_confs
+# #delete .so's and configs
+# #can't run this either without bricking ur box
+# #apt purge libpam0g libpam-modules libpam-modules-bin libpam-runtime
+# # this line will not allow any sudo shells to be opened, none can be opened this will brick your box!!!!
+# #rm -rf /etc/pam.d/*
+# #reinstall the package that holds the clean configs for pam.d/
+# apt install -y --reinstall libpam-runtime
+# #reinstall everything
+# apt install -y --reinstall libpam0g libpam-modules libpam-modules-bin
+# #make immutable
+# chattr +i /lib/x86_64-linux-gnu/security
+# chattr +i /usr/lib/x86_64-linux-gnu/security
+# chattr +i /etc/pam.d/*
 #copy ssh config before reinstallation
-###cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
+cp /etc/ssh/sshd_config /var/log/SYSLOG/backs_bf_reinstal/sshd_config.bak
 
 
 #stop sshd
@@ -226,113 +226,113 @@ for volume in $(docker volume ls -q); do
     echo "Backing up volume: $volume"
     tar -czf "$VOLUME_BACKUP_DIR/$volume.tar.gz" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$volume")" .
 done
-#check that backups are there
-if [[ $? -ne 0 ]]; then
-    echo "Failed to back up Docker data. Exiting."
-    exit 1
-fi
+# #check that backups are there
+# if [[ $? -ne 0 ]]; then
+#     echo "Failed to back up Docker data. Exiting."
+#     exit 1
+# fi
 
-#delete everything 
-apt remove -y containerd
-apt remove -y docker.io containerd containerd.io docker docker-engine docker-ce docker-ce-cli
-rm -rf /var/lib/docker /var/lib/containerd
+# #delete everything 
+# apt remove -y containerd
+# apt remove -y docker.io containerd containerd.io docker docker-engine docker-ce docker-ce-cli
+# rm -rf /var/lib/docker /var/lib/containerd
 
-# Step 3: Reinstall Docker
-apt update
-apt install --reinstall -y docker.io
-if [[ $? -ne 0 ]]; then
-    echo "Failed to reinstall Docker. Exiting."
-    exit 1
-fi
+# # Step 3: Reinstall Docker
+# apt update
+# apt install --reinstall -y docker.io
+# if [[ $? -ne 0 ]]; then
+#     echo "Failed to reinstall Docker. Exiting."
+#     exit 1
+# fi
 
 #start docker
 systemctl start docker
 systemctl enable docker
 
-# Step 4: Restore Docker data (ensure no HTTP modifications)
+# # Step 4: Restore Docker data (ensure no HTTP modifications)
 
-#restore containers
-for image_backup in "$DOCKER_BACKUP_DIR"/*-image.tar; do
-    # Extract the container name from the backup file
-    CONTAINER_NAME=$(basename "$image_backup" -image.tar)
-    CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
+# #restore containers
+# for image_backup in "$DOCKER_BACKUP_DIR"/*-image.tar; do
+#     # Extract the container name from the backup file
+#     CONTAINER_NAME=$(basename "$image_backup" -image.tar)
+#     CONFIG_FILE="$DOCKER_BACKUP_DIR/$CONTAINER_NAME-config.json"
 
-    echo "Restoring container: $CONTAINER_NAME"
+#     echo "Restoring container: $CONTAINER_NAME"
 
-    # Load the saved image
-    if ! docker load < "$image_backup"; then
-        echo "Error loading image for $CONTAINER_NAME" >&2
-        continue
-    fi
+#     # Load the saved image
+#     if ! docker load < "$image_backup"; then
+#         echo "Error loading image for $CONTAINER_NAME" >&2
+#         continue
+#     fi
 
-    # Check for the configuration file
-    if [[ -f "$CONFIG_FILE" ]]; then
-        echo "Recreating container: $CONTAINER_NAME with configuration..."
+#     # Check for the configuration file
+#     if [[ -f "$CONFIG_FILE" ]]; then
+#         echo "Recreating container: $CONTAINER_NAME with configuration..."
 
-        # Extract image name from configuration
-        IMAGE_NAME=$(jq -r '.Config.Image' "$CONFIG_FILE")
+#         # Extract image name from configuration
+#         IMAGE_NAME=$(jq -r '.Config.Image' "$CONFIG_FILE")
 
-        # Extract port bindings
-        PORT_BINDINGS=""
-        PORTS=$(jq -r '.HostConfig.PortBindings | keys[]' "$CONFIG_FILE")
-        for PORT in $PORTS; do
-            HOST_PORT=$(jq -r ".HostConfig.PortBindings[\"$PORT\"][0].HostPort // empty" "$CONFIG_FILE")
-            CONTAINER_PORT=$(echo "$PORT" | cut -d/ -f1)
-            if [[ -n "$HOST_PORT" ]]; then
-                PORT_BINDINGS+=" -p $HOST_PORT:$CONTAINER_PORT"
-            fi
-        done
+#         # Extract port bindings
+#         PORT_BINDINGS=""
+#         PORTS=$(jq -r '.HostConfig.PortBindings | keys[]' "$CONFIG_FILE")
+#         for PORT in $PORTS; do
+#             HOST_PORT=$(jq -r ".HostConfig.PortBindings[\"$PORT\"][0].HostPort // empty" "$CONFIG_FILE")
+#             CONTAINER_PORT=$(echo "$PORT" | cut -d/ -f1)
+#             if [[ -n "$HOST_PORT" ]]; then
+#                 PORT_BINDINGS+=" -p $HOST_PORT:$CONTAINER_PORT"
+#             fi
+#         done
 
-        # Extract environment variables
-        ENV_VARS=""
-        ENV_LIST=$(jq -r '.Config.Env[] // empty' "$CONFIG_FILE")
-        for ENV in $ENV_LIST; do
-            ENV_VARS+=" --env $ENV"
-        done
+#         # Extract environment variables
+#         ENV_VARS=""
+#         ENV_LIST=$(jq -r '.Config.Env[] // empty' "$CONFIG_FILE")
+#         for ENV in $ENV_LIST; do
+#             ENV_VARS+=" --env $ENV"
+#         done
 
-        # Run the container
-        if ! docker run -d --name "$CONTAINER_NAME" $PORT_BINDINGS $ENV_VARS "$IMAGE_NAME"; then
-            echo "Error recreating container: $CONTAINER_NAME" >&2
-            continue
-        fi
-    else
-        echo "Configuration file not found for $CONTAINER_NAME. Using default settings."
+#         # Run the container
+#         if ! docker run -d --name "$CONTAINER_NAME" $PORT_BINDINGS $ENV_VARS "$IMAGE_NAME"; then
+#             echo "Error recreating container: $CONTAINER_NAME" >&2
+#             continue
+#         fi
+#     else
+#         echo "Configuration file not found for $CONTAINER_NAME. Using default settings."
 
-        # Run the container with default settings
-        if ! docker run -d --name "$CONTAINER_NAME" "$IMAGE_NAME"; then
-            echo "Error recreating container: $CONTAINER_NAME" >&2
-            continue
-        fi
-    fi
-done
+#         # Run the container with default settings
+#         if ! docker run -d --name "$CONTAINER_NAME" "$IMAGE_NAME"; then
+#             echo "Error recreating container: $CONTAINER_NAME" >&2
+#             continue
+#         fi
+#     fi
+# done
 
-#restore volumes
-for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
-    [ -f "$backup_file" ] || continue
-    VOLUME_NAME=$(basename "$backup_file" .tar.gz)
-    echo "Restoring volume: $VOLUME_NAME"
-    docker volume create "$VOLUME_NAME"
-    tar -xzf "$backup_file" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$VOLUME_NAME")"
-done
+# #restore volumes
+# for backup_file in "$VOLUME_BACKUP_DIR"/*.tar.gz; do
+#     [ -f "$backup_file" ] || continue
+#     VOLUME_NAME=$(basename "$backup_file" .tar.gz)
+#     echo "Restoring volume: $VOLUME_NAME"
+#     docker volume create "$VOLUME_NAME"
+#     tar -xzf "$backup_file" -C "$(docker volume inspect --format '{{ .Mountpoint }}' "$VOLUME_NAME")"
+# done
 
-# Step 5: Start Docker service
-echo "Starting Docker service..."
-systemctl start docker
-if [[ $? -ne 0 ]]; then
-    echo "Failed to start Docker."
-else
-    echo "Docker succesfully started"
-fi
+# # Step 5: Start Docker service
+# echo "Starting Docker service..."
+# systemctl start docker
+# if [[ $? -ne 0 ]]; then
+#     echo "Failed to start Docker."
+# else
+#     echo "Docker succesfully started"
+# fi
 
-# Step 6: Verify HTTP service is running
-echo "Verifying HTTP service..."
-HTTP_PORT=80
-docker ps | grep -q "0.0.0.0:$HTTP_PORT->80/tcp"
-if [[ $? -eq 0 ]]; then
-    echo "HTTP service is running on port $HTTP_PORT."
-else
-    echo "HTTP service is NOT running or may be on a different port. Check Docker container configurations."
-fi
+# # Step 6: Verify HTTP service is running
+# echo "Verifying HTTP service..."
+# HTTP_PORT=80
+# docker ps | grep -q "0.0.0.0:$HTTP_PORT->80/tcp"
+# if [[ $? -eq 0 ]]; then
+#     echo "HTTP service is running on port $HTTP_PORT."
+# else
+#     echo "HTTP service is NOT running or may be on a different port. Check Docker container configurations."
+# fi
 
 #backup docker after reinstallation
 mkdir -p /var/log/SYSLOG/backs_af_reinstal/docker_backup
@@ -469,4 +469,4 @@ echo "."
 echo "."
 echo "."
 echo "Script Complete!"
-rm rocky9-lan.sh
+rm ubuntu-lan.sh
